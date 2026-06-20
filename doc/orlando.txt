@@ -1,0 +1,172 @@
+*orlando.txt*	Marker-aware soft-wrap indentation for Markdown
+
+			      ORLANDO  ~
+
+A rendering plugin for Markdown files in Neovim.
+
+==============================================================================
+CONTENTS						*orlando-contents*
+
+	1. Introduction ................. |orlando-introduction|
+	2. How it works ................. |orlando-how-it-works|
+	3. Installation ................. |orlando-installation|
+	4. Configuration ............... |orlando-configuration|
+	5. API ......................... |orlando-api|
+	6. Caveats ..................... |orlando-caveats|
+	7. Development ................. |orlando-development|
+
+==============================================================================
+1. INTRODUCTION						*orlando-introduction*
+
+Orlando keeps soft-wrapped Markdown paragraphs visually aligned.
+
+- The second and subsequent visual lines are indented at least as much as the
+  first line.
+- When a paragraph starts with a marker, the wrapped lines align with the
+  start of the text, not the marker: >
+
+	- This is a bullet, and
+	  this is how it wraps
+
+	### This is a long
+	    heading, and it wraps
+	    like this
+<
+Supported markers: bullets (`-` `*` `+`), ordered lists (`1.` `2)`), ATX
+headings (`#` .. `######`), and blockquotes (`>`).
+
+Orlando activates automatically on Markdown buffers; no setup is required.
+
+==============================================================================
+2. HOW IT WORKS						*orlando-how-it-works*
+
+Neovim has no per-line "wrap indent" API, so Orlando drives the built-in
+options that already implement this behaviour. For each managed buffer/window
+it sets:
+
+	'breakindent'		Wrapped lines continue at the first line's
+				indent. This gives the "at least as much as
+				the first line" guarantee.
+
+	'breakindentopt'	Set to "list:-1". A line matching
+				'formatlistpat' continues indented by the
+				display width of that match, i.e. under the
+				text following the marker.
+
+	'formatlistpat'		The regex deciding what counts as a marker.
+				Orlando widens the default (ordered lists
+				only) to also match bullets, ATX headings and
+				blockquotes.
+
+	'wrap', 'linebreak'	Soft-wrap on, breaking at word boundaries.
+
+See |'breakindentopt'| and |'formatlistpat'| for the underlying options.
+
+==============================================================================
+3. INSTALLATION						*orlando-installation*
+
+With lazy.nvim: >
+
+	{ "jplein/orlando" }
+<
+With packer.nvim: >
+
+	use "jplein/orlando"
+<
+No call to |orlando.setup()| is needed. It activates on Markdown buffers as
+soon as it is on the runtimepath.
+
+==============================================================================
+4. CONFIGURATION					*orlando-configuration*
+
+Calling |orlando.setup()| is optional. Pass a table to override defaults; it
+is deep-merged over them. Defaults: >
+
+	require("orlando").setup({
+	  filetypes = { "markdown" },
+	  features = {
+	    wrap_indent = {
+	      enabled = true,
+	      wrap = true,
+	      linebreak = true,
+	      breakindentopt = "list:-1",
+	      markers = {
+	        bullets = true,
+	        ordered = true,
+	        headings = true,
+	        blockquotes = true,
+	      },
+	    },
+	  },
+	})
+<
+							*orlando-config-fields*
+filetypes		list of string			(default {"markdown"})
+	Filetypes Orlando activates for. Checked dynamically, so setting this
+	via setup() works even when the plugin loads before your config runs.
+
+features.wrap_indent.enabled	boolean			(default true)
+	Master switch for the wrap-indent feature.
+
+features.wrap_indent.wrap	boolean			(default true)
+	Enable 'wrap'. Set false to leave the user's 'wrap' untouched.
+
+features.wrap_indent.linebreak	boolean			(default true)
+	Enable 'linebreak'. Set false to leave 'linebreak' untouched.
+
+features.wrap_indent.breakindentopt	string	(default "list:-1")
+	Value applied to 'breakindentopt'. 'breakindent' itself is always
+	enabled, since it is the mechanism.
+
+features.wrap_indent.markers	table			(all true)
+	Which block markers get text-aligned continuation lines. Fields:
+	`bullets`, `ordered`, `headings`, `blockquotes`. The first line's
+	indent is always preserved regardless of these.
+
+==============================================================================
+5. API							*orlando-api*
+
+orlando.setup({opts})					*orlando.setup()*
+	Override the default configuration. Optional. {opts} is a table using
+	the structure shown in |orlando-configuration|.
+
+orlando.attach({buf})					*orlando.attach()*
+	(Re)apply Orlando's features to buffer {buf} in every window that
+	displays it. Safe to call repeatedly. This is the entry point the
+	activation autocmds use; call it manually if you change options on a
+	live buffer and want them reasserted.
+
+==============================================================================
+6. CAVEATS						*orlando-caveats*
+
+'formatlistpat' is also consulted by the |gq| / |gw| reflow commands. Because
+Orlando widens it, reflow now treats headings and blockquotes as list headers
+too. If that is undesirable, disable the relevant marker types, e.g.: >
+
+	require("orlando").setup({
+	  features = { wrap_indent = { markers = { headings = false } } },
+	})
+<
+Window options ('wrap', 'linebreak', 'breakindent', 'breakindentopt') are
+window-local. Orlando applies them to every window showing a managed buffer on
+|FileType| and |BufWinEnter|. If you open a managed buffer in a new split, the
+options are applied as that window is entered.
+
+==============================================================================
+7. DEVELOPMENT						*orlando-development*
+
+Run the numeric tests (exit code 0 means pass): >
+
+	nvim -l test/wrap_indent_spec.lua
+<
+The test verifies the exact mechanism: for each sample line the display width
+of the 'formatlistpat' match equals the column where the text begins, which is
+the indent "list:-1" applies.
+
+To eyeball the rendering: >
+
+	nvim test/sample.md
+<
+then narrow the window until the lines soft-wrap.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
