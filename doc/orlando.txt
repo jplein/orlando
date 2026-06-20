@@ -1,4 +1,4 @@
-*orlando.txt*	Marker-aware soft-wrap indentation for Markdown
+*orlando.txt*	Rendering touches for Markdown buffers
 
 			      ORLANDO  ~
 
@@ -18,7 +18,10 @@ CONTENTS						*orlando-contents*
 ==============================================================================
 1. INTRODUCTION						*orlando-introduction*
 
-Orlando keeps soft-wrapped Markdown paragraphs visually aligned.
+Orlando applies small rendering touches to Markdown buffers. It currently has
+two features:
+
+wrap_indent	Keeps soft-wrapped paragraphs visually aligned.
 
 - The second and subsequent visual lines are indented at least as much as the
   first line.
@@ -35,10 +38,17 @@ Orlando keeps soft-wrapped Markdown paragraphs visually aligned.
 Supported markers: bullets (`-` `*` `+`), ordered lists (`1.` `2)`), ATX
 headings (`#` .. `######`), and blockquotes (`>`).
 
+code_block	Fills each line of a fenced code block (```` ``` ````, `~~~`)
+		with a background that runs to the right edge of the pane,
+		instead of stopping at the line's last character.
+
 Orlando activates automatically on Markdown buffers; no setup is required.
 
 ==============================================================================
 2. HOW IT WORKS						*orlando-how-it-works*
+
+						*orlando-wrap-indent*
+WRAP INDENT ~
 
 Neovim has no per-line "wrap indent" API, so Orlando drives the built-in
 options that already implement this behaviour. For each managed buffer/window
@@ -62,6 +72,32 @@ it sets:
 
 See |'breakindentopt'| and |'formatlistpat'| for the underlying options.
 
+						*orlando-code-block*
+CODE BLOCK ~
+
+A highlight normally paints only the characters on a line, so a code block's
+background stops at the last character instead of crossing the pane. Orlando
+fixes this with |extmarks|: it scans the buffer for fenced code blocks and
+places one extmark per line with `hl_eol` set, which continues the highlight
+to the end of the screen line.
+
+	hl_group	The group painted across each line. The default,
+			`OrlandoCodeBlock`, is background-only (linked to
+			|hl-CursorLine|), so syntax/treesitter foreground
+			colours inside the block are preserved -- Orlando only
+			adds the background.
+
+	priority	The extmark priority, kept low so per-token colours win.
+
+Extmarks do not survive edits, so the feature also repaints on |TextChanged|
+and |TextChangedI|. Only fenced blocks are matched; indented (4-space) code
+blocks are left alone.
+
+To change the colour, point `hl_group` at your own group or redefine
+`OrlandoCodeBlock`, e.g.: >
+
+	vim.api.nvim_set_hl(0, "OrlandoCodeBlock", { bg = "#2a2a37" })
+<
 ==============================================================================
 3. INSTALLATION						*orlando-installation*
 
@@ -97,6 +133,11 @@ is deep-merged over them. Defaults: >
 	        blockquotes = true,
 	      },
 	    },
+	    code_block = {
+	      enabled = true,
+	      hl_group = "OrlandoCodeBlock",
+	      priority = 10,
+	    },
 	  },
 	})
 <
@@ -122,6 +163,18 @@ features.wrap_indent.markers	table			(all true)
 	Which block markers get text-aligned continuation lines. Fields:
 	`bullets`, `ordered`, `headings`, `blockquotes`. The first line's
 	indent is always preserved regardless of these.
+
+features.code_block.enabled	boolean			(default true)
+	Master switch for the full-width code-block background.
+
+features.code_block.hl_group	string		(default "OrlandoCodeBlock")
+	Highlight group painted across each code-block line. The default
+	group is background-only (linked to |hl-CursorLine|), so foreground
+	colours inside the block are kept. See |orlando-code-block|.
+
+features.code_block.priority	number			(default 10)
+	|nvim_buf_set_extmark()| priority for the background. Low so that
+	per-token foreground highlights take precedence.
 
 ==============================================================================
 5. API							*orlando-api*
@@ -158,15 +211,18 @@ options are applied as that window is entered.
 Run the numeric tests (exit code 0 means pass): >
 
 	nvim -l test/wrap_indent_spec.lua
+	nvim -l test/code_block_spec.lua
 <
-The test verifies the exact mechanism: for each sample line the display width
-of the 'formatlistpat' match equals the column where the text begins, which is
-the indent "list:-1" applies.
+The wrap_indent test verifies the exact mechanism: for each sample line the
+display width of the 'formatlistpat' match equals the column where the text
+begins, which is the indent "list:-1" applies. The code_block test checks that
+fence detection returns the exact line ranges it should paint.
 
 To eyeball the rendering: >
 
 	nvim test/sample.md
 <
-then narrow the window until the lines soft-wrap.
+then narrow the window until the lines soft-wrap. The fenced code block's
+background should reach the right edge of the window on every line.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

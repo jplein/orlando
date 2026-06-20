@@ -1,5 +1,6 @@
 orlando-api	orlando.txt	/*orlando-api*
 orlando-caveats	orlando.txt	/*orlando-caveats*
+orlando-code-block	orlando.txt	/*orlando-code-block*
 orlando-config-fields	orlando.txt	/*orlando-config-fields*
 orlando-configuration	orlando.txt	/*orlando-configuration*
 orlando-contents	orlando.txt	/*orlando-contents*
@@ -7,6 +8,7 @@ orlando-development	orlando.txt	/*orlando-development*
 orlando-how-it-works	orlando.txt	/*orlando-how-it-works*
 orlando-installation	orlando.txt	/*orlando-installation*
 orlando-introduction	orlando.txt	/*orlando-introduction*
+orlando-wrap-indent	orlando.txt	/*orlando-wrap-indent*
 orlando.attach()	orlando.txt	/*orlando.attach()*
 orlando.setup()	orlando.txt	/*orlando.setup()*
 orlando.txt	orlando.txt	/*orlando.txt*

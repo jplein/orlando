@@ -36,6 +36,22 @@ M.defaults = {
         blockquotes = true, -- >, >>, ...
       },
     },
+
+    -- Full-width background for fenced code blocks: the highlight extends to
+    -- the pane edge instead of stopping at each line's last character.
+    code_block = {
+      enabled = true,
+
+      -- Highlight group painted across each code-block line. The default
+      -- group is background-only (linked to CursorLine) so syntax colours
+      -- inside the block are preserved. Point this at your own group, or
+      -- redefine OrlandoCodeBlock, to change the colour.
+      hl_group = "OrlandoCodeBlock",
+
+      -- Extmark priority. Kept low so per-token foreground colours win; the
+      -- default group sets no foreground, so only the background shows.
+      priority = 10,
+    },
   },
 }
 

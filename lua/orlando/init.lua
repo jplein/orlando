@@ -13,6 +13,7 @@ local M = {}
 -- Registered features, applied in order.
 local features = {
   require("orlando.features.wrap_indent"),
+  require("orlando.features.code_block"),
 }
 
 --- Is Orlando configured to act on this buffer's filetype?

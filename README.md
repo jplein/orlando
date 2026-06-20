@@ -4,6 +4,10 @@ Orlando is a rendering plugin for Markdown files in Neovim.
 
 ## What it does
 
+Orlando adds small rendering touches to Markdown buffers.
+
+### Wrap indent
+
 When a paragraph soft-wraps, Orlando keeps the wrapped lines visually aligned:
 
 - The second and subsequent visual lines are indented **at least as much as the
@@ -23,10 +27,19 @@ When a paragraph soft-wraps, Orlando keeps the wrapped lines visually aligned:
 Supported markers: bullets (`-` `*` `+`), ordered lists (`1.` `2)`), ATX
 headings (`#` … `######`), and blockquotes (`>`).
 
+### Code block background
+
+A highlight normally stops at a line's last character, so a code block's
+background only paints the text. Orlando fills **every line of a fenced code
+block to the right edge of the pane** — so a background colour reads as one
+solid block. The default highlight is background-only (linked to `CursorLine`),
+so syntax colours inside the block are kept; point `hl_group` at your own group
+or redefine `OrlandoCodeBlock` to change the colour.
+
 ## How it works
 
-There is no per-line "wrap indent" API in Neovim, so Orlando uses the built-in
-machinery that already supports exactly this:
+**Wrap indent.** There is no per-line "wrap indent" API in Neovim, so Orlando
+uses the built-in machinery that already supports exactly this:
 
 | Option                    | Role                                                                  |
 | ------------------------- | -------------------------------------------------------------------- |
@@ -37,6 +50,12 @@ machinery that already supports exactly this:
 
 The only side effect worth knowing: `formatlistpat` is also consulted by `gq`
 reflow, so reflowing now treats headings/blockquotes as list headers too.
+
+**Code block background.** Orlando scans for fenced code blocks and places one
+extmark per line with `hl_eol = true`, which continues the highlight past the
+last character to the end of the screen line. Extmarks don't survive edits, so
+it repaints on `TextChanged`/`TextChangedI`. Only fenced blocks are matched;
+indented (4-space) blocks are left alone.
 
 ## Install
 
@@ -66,6 +85,11 @@ require("orlando").setup({
         blockquotes = true,
       },
     },
+    code_block = {
+      enabled = true,
+      hl_group = "OrlandoCodeBlock",  -- background-only; links to CursorLine
+      priority = 10,                  -- low, so token colours win
+    },
   },
 })
 ```
@@ -74,6 +98,7 @@ require("orlando").setup({
 
 ```sh
 nvim -l test/wrap_indent_spec.lua   # numeric tests (exit 0 = pass)
+nvim -l test/code_block_spec.lua
 ```
 
 Or eyeball it: `nvim test/sample.md`, then narrow the window until lines wrap.
@@ -86,6 +111,7 @@ lua/orlando/init.lua            public API + feature orchestration
 lua/orlando/config.lua          defaults + setup() merge
 lua/orlando/features/           one module per rendering feature
   wrap_indent.lua
+  code_block.lua
 ```
 
 New rendering features (heading styles, conceal, …) drop in as another module

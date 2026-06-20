@@ -18,3 +18,13 @@ This is a plain paragraph that has no marker at all, so when it soft-wraps the s
 > A blockquote that runs long enough to wrap; the wrapped portion should sit under the text following the ">" marker rather than at column zero.
 
 #hashtag-like text is not a heading (no space after #), so it wraps as a plain paragraph.
+
+A fenced code block below. Its background should fill each line all the way to
+the right edge of the window, even past short lines and the blank line:
+
+```lua
+local function greet(name)
+  return "hello, " .. name
+
+end
+```
