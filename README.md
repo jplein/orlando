@@ -41,12 +41,12 @@ or redefine `OrlandoCodeBlock` to change the colour.
 **Wrap indent.** There is no per-line "wrap indent" API in Neovim, so Orlando
 uses the built-in machinery that already supports exactly this:
 
-| Option                    | Role                                                                  |
-| ------------------------- | -------------------------------------------------------------------- |
-| `breakindent`             | Wrapped lines continue at the first line's indent.                   |
-| `breakindentopt=list:-1`  | Marked lines continue under their *text* (width of the marker match). |
-| `formatlistpat`           | The regex that decides what counts as a marker. Orlando widens it.   |
-| `wrap`, `linebreak`       | Soft-wrap on, breaking at word boundaries.                           |
+| Option                   | Role                                                                  |
+| ------------------------ | --------------------------------------------------------------------- |
+| `breakindent`            | Wrapped lines continue at the first line's indent.                    |
+| `breakindentopt=list:-1` | Marked lines continue under their _text_ (width of the marker match). |
+| `formatlistpat`          | The regex that decides what counts as a marker. Orlando widens it.    |
+| `wrap`, `linebreak`      | Soft-wrap on, breaking at word boundaries.                            |
 
 The only side effect worth knowing: `formatlistpat` is also consulted by `gq`
 reflow, so reflowing now treats headings/blockquotes as list headers too.
