@@ -22,7 +22,7 @@
       mkOrlando =
         pkgs:
         pkgs.vimUtils.buildVimPlugin {
-          pname = "orlando-nvim";
+          pname = "orlando";
           version = self.shortRev or self.dirtyShortRev or "unstable";
           src = self;
           meta = {
@@ -36,16 +36,16 @@
       # Per-system package. Use directly in home-manager:
       #   programs.neovim.plugins = [ orlando.packages.${pkgs.system}.default ];
       packages = forAllSystems (pkgs: {
-        orlando-nvim = mkOrlando pkgs;
-        default = self.packages.${pkgs.system}.orlando-nvim;
+        orlando = mkOrlando pkgs;
+        default = self.packages.${pkgs.system}.orlando;
       });
 
-      # Overlay so the plugin is available as pkgs.vimPlugins.orlando-nvim after
+      # Overlay so the plugin is available as pkgs.vimPlugins.orlando after
       # adding it to nixpkgs.overlays. Then:
-      #   programs.neovim.plugins = [ pkgs.vimPlugins.orlando-nvim ];
+      #   programs.neovim.plugins = [ pkgs.vimPlugins.orlando ];
       overlays.default = final: prev: {
         vimPlugins = prev.vimPlugins // {
-          orlando-nvim = mkOrlando final;
+          orlando = mkOrlando final;
         };
       };
 

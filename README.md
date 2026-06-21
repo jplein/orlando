@@ -86,7 +86,7 @@ Or apply the overlay and pull it from `pkgs.vimPlugins`:
 ```nix
 nixpkgs.overlays = [ inputs.orlando.overlays.default ];
 # ...
-programs.neovim.plugins = [ pkgs.vimPlugins.orlando-nvim ];
+programs.neovim.plugins = [ pkgs.vimPlugins.orlando ];
 ```
 
 ## Configuration
