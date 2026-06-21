@@ -67,6 +67,28 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 It activates automatically on Markdown buffers. `setup()` is optional.
 
+### Nix / home-manager
+
+This repo is a flake. Add it as an input:
+
+```nix
+inputs.orlando.url = "github:jplein/orlando";
+```
+
+Then reference the package directly in your Neovim plugins:
+
+```nix
+programs.neovim.plugins = [ inputs.orlando.packages.${pkgs.system}.default ];
+```
+
+Or apply the overlay and pull it from `pkgs.vimPlugins`:
+
+```nix
+nixpkgs.overlays = [ inputs.orlando.overlays.default ];
+# ...
+programs.neovim.plugins = [ pkgs.vimPlugins.orlando-nvim ];
+```
+
 ## Configuration
 
 ```lua
