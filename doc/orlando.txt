@@ -217,8 +217,9 @@ The wrap_indent test verifies the exact mechanism: for each sample line the
 display width of the 'formatlistpat' match equals the column where the text
 begins, which is the indent "list:-1" applies. The code_block test checks that
 fence detection returns the exact line ranges it should paint, and that paint
-adds the overlay extmark that fills the 'breakindent' gap at the start of
-soft-wrapped rows.
+adds the overlay extmarks that fill the 'breakindent' gap at the start of
+soft-wrapped rows -- both plain indents and the "list:-1" marker case, where
+the fill hangs at the marker width and the marker is redrawn on the first row.
 
 Runtimepath note: if Orlando is also installed (the home-manager module places
 it under ~/.local/share/nvim/site/pack/.../orlando), that copy sits earlier on

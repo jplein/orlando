@@ -67,6 +67,50 @@ local function ensure_hl(cfg)
   end
 end
 
+--- How soft-wrapped lines in `buf` get re-indented -- needed so the background
+--- fill can match exactly. 'breakindent'/'breakindentopt' are window-local
+--- (the continuation indent is a property of the view), so we read them from a
+--- window showing the buffer; 'formatlistpat' is what `list:-1` measures.
+---@param buf integer
+---@return { breakindent: boolean, list: boolean, flp: string }
+local function break_geometry(buf)
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= buf then
+    win = vim.fn.win_findbuf(buf)[1]
+  end
+  if not win then
+    -- Not displayed yet: we cannot know the wrap geometry, so skip the fill
+    -- (a later BufWinEnter repaints with a window present).
+    return { breakindent = false, list = false, flp = "" }
+  end
+  return {
+    breakindent = vim.wo[win].breakindent,
+    -- 'list:-1' indents a marked line's continuation to the display width of its
+    -- 'formatlistpat' match (aligning under the text), rather than to its
+    -- leading whitespace. Other list:{n} values are not the wrap_indent default.
+    list = vim.wo[win].breakindentopt:match("list:(%-?%d+)") == "-1",
+    flp = vim.bo[buf].formatlistpat,
+  }
+end
+
+--- The display width of `line`'s soft-wrap continuation indent, and the literal
+--- prefix occupying it. For a plain line that is its leading whitespace; under
+--- `list:-1` a marked line instead hangs at the width of its 'formatlistpat'
+--- match (which begins at column 0, so it always covers the leading whitespace).
+---@param line string
+---@param geom table  result of break_geometry
+---@return integer width, string prefix
+local function continuation_indent(line, geom)
+  local prefix = line:match("^%s*")
+  if geom.list and geom.flp ~= "" then
+    local match = vim.fn.matchstr(line, geom.flp)
+    if #match > #prefix then
+      prefix = match
+    end
+  end
+  return vim.fn.strdisplaywidth(prefix), prefix
+end
+
 --- Repaint every fenced code block in `buf` with a full-width background.
 ---@param buf integer
 ---@param cfg table
@@ -76,6 +120,7 @@ local function paint(buf, cfg)
   end
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
 
+  local geom = break_geometry(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
   for _, block in ipairs(M.find_blocks(lines)) do
     for row = block.from, block.to do
@@ -100,17 +145,33 @@ local function paint(buf, cfg)
       -- highlight above only reaches real character cells, so it cannot fill it.
       -- Overlay the indent columns with our highlight and repeat it on each
       -- wrapped row (virt_text_repeat_linebreak) so the fill reaches column 0
-      -- there too. Lines with no indent have no gap, so skip them.
-      local width = vim.fn.strdisplaywidth(line:match("^%s*"))
-      if width > 0 then
-        vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
-          virt_text = { { string.rep(" ", width), cfg.hl_group } },
-          virt_text_pos = "overlay",
-          virt_text_win_col = 0,
-          virt_text_repeat_linebreak = true,
-          hl_mode = "combine",
-          priority = cfg.priority,
-        })
+      -- there too. Only meaningful when the view actually re-indents wraps.
+      if geom.breakindent then
+        local width, prefix = continuation_indent(line, geom)
+        if width > 0 then
+          vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+            virt_text = { { string.rep(" ", width), cfg.hl_group } },
+            virt_text_pos = "overlay",
+            virt_text_win_col = 0,
+            virt_text_repeat_linebreak = true,
+            hl_mode = "combine",
+            priority = cfg.priority,
+          })
+
+          -- A marker line (list:-1) hangs wider than its leading whitespace, so
+          -- the fill above would blank the marker on the FIRST row. Redraw the
+          -- real prefix there -- no repeat, so only the first row -- on top of
+          -- the fill. hl_mode "combine" keeps the marker's own syntax colour.
+          if prefix:find("%S") then
+            vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+              virt_text = { { prefix, cfg.hl_group } },
+              virt_text_pos = "overlay",
+              virt_text_win_col = 0,
+              hl_mode = "combine",
+              priority = cfg.priority + 1,
+            })
+          end
+        end
       end
     end
   end

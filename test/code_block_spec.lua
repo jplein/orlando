@@ -107,87 +107,114 @@ end
 -- A soft-wrapped line is re-indented by 'breakindent', and that virtual indent
 -- is drawn with the window background, not our highlight -- so the range
 -- extmark leaves an unpainted gap at the start of every wrapped row. paint()
--- closes it with a second extmark per indented line: an overlay of spaces at
--- window column 0, repeated on each wrapped row (virt_text_repeat_linebreak).
--- We assert that overlay exists for indented lines (width == the indent's
--- display width) and is absent for lines with no indent -- which is what makes
--- the fill reach column 0 on continuation rows. No UI/wrap needed: the extmark
--- options are the behaviour; we verified they render correctly by hand.
+-- closes it with overlay extmarks at window column 0, repeated onto each wrapped
+-- row (virt_text_repeat_linebreak):
+--
+--   * a "fill" overlay of spaces sized to the continuation indent. For a plain
+--     line that is its leading whitespace; under 'breakindentopt=list:-1' a
+--     marked line (matching 'formatlistpat') instead hangs at the marker width.
+--   * for a marked line the fill would blank the marker on the FIRST row, so a
+--     second "redraw" overlay (no repeat -> first row only) repaints the real
+--     prefix on top.
+--
+-- paint() reads the continuation indent from the *window*, so the buffer must be
+-- shown in one with breakindent on. We assert the fill widths and prefix
+-- redraws; the extmark options are the behaviour (verified to render by hand).
 
-local function check_overlays(name, lines, want_widths)
+-- Mirror wrap_indent's real defaults so marked lines match.
+local flp = require("orlando.features.wrap_indent").build_formatlistpat({
+  bullets = true,
+  ordered = true,
+  headings = true,
+  blockquotes = true,
+})
+
+--- @param want_fills table   row -> fill width (the repeated space overlay)
+--- @param want_redraws table row -> prefix string (the first-row marker redraw)
+local function check_overlays(name, lines, want_fills, want_redraws)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  local cfg = require("orlando.config").options.features.code_block
-  cb.apply(buf, 0, cfg)
+  vim.api.nvim_win_set_buf(0, buf) -- continuation indent is read from the window
+  vim.wo[0].wrap = true
+  vim.wo[0].breakindent = true
+  vim.wo[0].breakindentopt = "list:-1"
+  vim.bo[buf].formatlistpat = flp
+
+  cb.apply(buf, 0, require("orlando.config").options.features.code_block)
 
   local ns = vim.api.nvim_get_namespaces()["orlando/code_block"]
   local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, { details = true })
 
-  local got = {} -- row -> overlay width, for the overlay (virt_text) extmarks
-  local bad = nil -- first malformed-overlay message, if any
+  local fills, redraws = {}, {} -- row -> width / prefix string
+  local bad = nil
   for _, m in ipairs(marks) do
     local row, d = m[2], m[4]
     if d.virt_text then
-      got[row] = vim.fn.strdisplaywidth(d.virt_text[1][1])
-      if d.virt_text_win_col ~= 0 or d.virt_text_repeat_linebreak ~= true then
-        bad = bad
-          or string.format(
-            "row %d overlay has win_col=%s repeat=%s (want 0 / true)",
-            row,
-            tostring(d.virt_text_win_col),
-            tostring(d.virt_text_repeat_linebreak)
-          )
+      if d.virt_text_win_col ~= 0 then
+        bad = bad or string.format("row %d overlay win_col=%s (want 0)", row, tostring(d.virt_text_win_col))
+      end
+      if d.virt_text_repeat_linebreak == true then
+        fills[row] = vim.fn.strdisplaywidth(d.virt_text[1][1])
+      else
+        redraws[row] = d.virt_text[1][1]
       end
     end
   end
 
-  vim.api.nvim_buf_delete(buf, { force = true })
-
-  -- Compare the row->width maps exactly.
-  local ok = bad == nil
-  if ok then
-    for row, w in pairs(want_widths) do
-      if got[row] ~= w then
-        ok = false
+  local function map_eq(got, want)
+    for k, v in pairs(want) do
+      if got[k] ~= v then
+        return false
       end
     end
-    for row in pairs(got) do
-      if want_widths[row] == nil then
-        ok = false
+    for k in pairs(got) do
+      if want[k] == nil then
+        return false
       end
     end
+    return true
   end
+
+  local ok = bad == nil and map_eq(fills, want_fills) and map_eq(redraws, want_redraws)
 
   print(string.format("%s  %s", ok and "pass" or "FAIL", name))
   if not ok then
     if bad then
       print("       " .. bad)
     end
-    local function fmt_map(t)
-      local parts = {}
-      for row, w in pairs(t) do
-        parts[#parts + 1] = string.format("[%d]=%d", row, w)
-      end
-      table.sort(parts)
-      return "{" .. table.concat(parts, " ") .. "}"
-    end
-    print(string.format("       want %s  got %s", fmt_map(want_widths), fmt_map(got)))
+    print("       fills   want " .. vim.inspect(want_fills):gsub("%s+", " ") .. "  got " .. vim.inspect(fills):gsub("%s+", " "))
+    print("       redraws want " .. vim.inspect(want_redraws):gsub("%s+", " ") .. "  got " .. vim.inspect(redraws):gsub("%s+", " "))
   end
   return ok
 end
 
 print("")
 
--- Indented lines get an overlay sized to their indent; the fences and the
--- flush-left line (rows 0, 2, 4) get none.
+-- Plain indented lines: fill sized to leading whitespace, no marker redraw.
+-- Fences and the flush-left line (rows 0, 2, 4) get nothing.
 if
-  not check_overlays("overlay fills breakindent of indented lines", {
+  not check_overlays("plain indented lines fill to their leading whitespace", {
     "```rust", -- row 0: fence, no indent
     "    four space indent", -- row 1: indent 4
     "no indent", -- row 2: indent 0
     "        eight space indent", -- row 3: indent 8
     "```", -- row 4: fence, no indent
-  }, { [1] = 4, [3] = 8 })
+  }, { [1] = 4, [3] = 8 }, {})
+then
+  failed = failed + 1
+end
+
+-- Marker lines (list:-1): fill hangs at the marker width and the marker is
+-- redrawn on the first row; a plain indented line among them still fills to its
+-- whitespace with no redraw.
+if
+  not check_overlays("marker lines fill the hanging indent and redraw the marker", {
+    "```", -- row 0
+    "- a bulleted line that wraps", -- row 1: "- "  -> fill 2, redraw "- "
+    "    plain four space indent", -- row 2: indent 4 -> fill 4, no redraw
+    "1. an ordered item that wraps", -- row 3: "1. " -> fill 3, redraw "1. "
+    "```", -- row 4
+  }, { [1] = 2, [2] = 4, [3] = 3 }, { [1] = "- ", [3] = "1. " })
 then
   failed = failed + 1
 end
@@ -198,7 +225,7 @@ if
     "```",
     "flush left",
     "```",
-  }, {})
+  }, {}, {})
 then
   failed = failed + 1
 end

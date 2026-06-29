@@ -56,11 +56,16 @@ extmark per line with `hl_eol = true`, which continues the highlight past the
 last character to the end of the screen line. A soft-wrapped line is re-indented
 by `breakindent`, and that virtual indent is drawn with the window background,
 not the extmark — leaving an unpainted gap at the start of each wrapped row. So
-for every indented line Orlando adds a second extmark: an overlay of spaces at
-window column 0, repeated on each wrapped row (`virt_text_repeat_linebreak`), so
-the fill reaches column 0 there too. Extmarks don't survive edits, so it
-repaints on `TextChanged`/`TextChangedI`. Only fenced blocks are matched;
-indented (4-space) blocks are left alone.
+Orlando overlays the continuation indent with its highlight and repeats it onto
+every wrapped row (`virt_text_repeat_linebreak`), so the fill reaches column 0
+there too. The indent width matches what the view actually uses: a line's
+leading whitespace, or — when `breakindentopt=list:-1` makes a marker line
+(`- `, `# `, `1. `, …) hang under its text — the marker width. Because an overlay
+replaces glyphs, the fill would blank a marker on the line's first row, so for
+marker lines a second non-repeating overlay redraws the real prefix there (its
+syntax colour preserved via `hl_mode = "combine"`). Extmarks don't survive
+edits, so it repaints on `TextChanged`/`TextChangedI`. Only fenced blocks are
+matched; indented (4-space) blocks are left alone.
 
 ## Install
 
@@ -131,8 +136,9 @@ nvim -l test/code_block_spec.lua
 ```
 
 `wrap_indent_spec` checks the `formatlistpat` match width. `code_block_spec`
-checks fence detection _and_ the extmarks `paint()` lays down — including the
-overlay that fills the `breakindent` gap at the start of soft-wrapped rows.
+checks fence detection _and_ the extmarks `paint()` lays down — the overlay that
+fills the `breakindent` gap at the start of soft-wrapped rows, including the
+`list:-1` marker case (hanging-indent fill plus the first-row marker redraw).
 
 > **Heads up — runtimepath.** If you have Orlando installed too (the
 > [home-manager](#nix--home-manager) module drops it under
