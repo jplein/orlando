@@ -53,8 +53,13 @@ reflow, so reflowing now treats headings/blockquotes as list headers too.
 
 **Code block background.** Orlando scans for fenced code blocks and places one
 extmark per line with `hl_eol = true`, which continues the highlight past the
-last character to the end of the screen line. Extmarks don't survive edits, so
-it repaints on `TextChanged`/`TextChangedI`. Only fenced blocks are matched;
+last character to the end of the screen line. A soft-wrapped line is re-indented
+by `breakindent`, and that virtual indent is drawn with the window background,
+not the extmark — leaving an unpainted gap at the start of each wrapped row. So
+for every indented line Orlando adds a second extmark: an overlay of spaces at
+window column 0, repeated on each wrapped row (`virt_text_repeat_linebreak`), so
+the fill reaches column 0 there too. Extmarks don't survive edits, so it
+repaints on `TextChanged`/`TextChangedI`. Only fenced blocks are matched;
 indented (4-space) blocks are left alone.
 
 ## Install
@@ -118,12 +123,30 @@ require("orlando").setup({
 
 ## Development
 
+Run the numeric tests from the repo root (exit code 0 = pass):
+
 ```sh
-nvim -l test/wrap_indent_spec.lua   # numeric tests (exit 0 = pass)
+nvim -l test/wrap_indent_spec.lua
 nvim -l test/code_block_spec.lua
 ```
 
-Or eyeball it: `nvim test/sample.md`, then narrow the window until lines wrap.
+`wrap_indent_spec` checks the `formatlistpat` match width. `code_block_spec`
+checks fence detection _and_ the extmarks `paint()` lays down — including the
+overlay that fills the `breakindent` gap at the start of soft-wrapped rows.
+
+> **Heads up — runtimepath.** If you have Orlando installed too (the
+> [home-manager](#nix--home-manager) module drops it under
+> `~/.local/share/nvim/site/pack/.../orlando`), that copy sits _earlier_ on the
+> runtimepath. A naive `runtimepath:append(cwd)` would make `require` load the
+> installed plugin, so `nvim -l` would silently test that copy instead of your
+> working tree. The specs therefore `runtimepath:prepend(vim.fn.getcwd())` so
+> the working copy always wins — run them from the repo root. After editing the
+> plugin, rebuild/switch your home-manager config before the change shows up in
+> your editor (or launch with `nvim --cmd 'set rtp^=$PWD'` to try it live).
+
+Or eyeball it: `nvim test/sample.md`, then narrow the window until lines wrap —
+the code block's background should reach the left and right edges on every row,
+including wrapped continuation rows.
 
 ## Layout
 

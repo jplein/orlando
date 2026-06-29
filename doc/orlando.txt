@@ -208,7 +208,7 @@ options are applied as that window is entered.
 ==============================================================================
 7. DEVELOPMENT						*orlando-development*
 
-Run the numeric tests (exit code 0 means pass): >
+Run the numeric tests from the repo root (exit code 0 means pass): >
 
 	nvim -l test/wrap_indent_spec.lua
 	nvim -l test/code_block_spec.lua
@@ -216,13 +216,25 @@ Run the numeric tests (exit code 0 means pass): >
 The wrap_indent test verifies the exact mechanism: for each sample line the
 display width of the 'formatlistpat' match equals the column where the text
 begins, which is the indent "list:-1" applies. The code_block test checks that
-fence detection returns the exact line ranges it should paint.
+fence detection returns the exact line ranges it should paint, and that paint
+adds the overlay extmark that fills the 'breakindent' gap at the start of
+soft-wrapped rows.
+
+Runtimepath note: if Orlando is also installed (the home-manager module places
+it under ~/.local/share/nvim/site/pack/.../orlando), that copy sits earlier on
+the runtimepath. Appending the cwd would make `require` load the installed
+copy, so the specs `runtimepath:prepend(vim.fn.getcwd())` to make the working
+tree win -- run them from the repo root. After editing the plugin,
+rebuild/switch the home-manager config before the change appears in your
+editor, or launch with `nvim --cmd 'set rtp^=$PWD'` to try the working tree
+live.
 
 To eyeball the rendering: >
 
 	nvim test/sample.md
 <
 then narrow the window until the lines soft-wrap. The fenced code block's
-background should reach the right edge of the window on every line.
+background should reach both edges of the window on every line, including
+wrapped continuation rows.
 
  vim:tw=78:ts=8:noet:ft=help:norl:

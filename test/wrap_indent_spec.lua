@@ -7,7 +7,11 @@
 --
 -- Run:  nvim -l test/wrap_indent_spec.lua   (exit code 0 = pass)
 
-vim.opt.runtimepath:append(vim.fn.getcwd())
+-- prepend, not append: an installed copy of Orlando (e.g. via home-manager,
+-- under .local/share/nvim/site/pack/.../orlando) sits earlier on the
+-- runtimepath, so appending the cwd would make `require` load that copy instead
+-- of this working tree. Prepending guarantees the working copy wins.
+vim.opt.runtimepath:prepend(vim.fn.getcwd())
 
 local wi = require("orlando.features.wrap_indent")
 
